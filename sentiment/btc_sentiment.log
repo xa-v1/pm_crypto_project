@@ -1,0 +1,24 @@
+2026-02-24 16:02:38 | INFO     | Loading FinBERT model (ProsusAI/finbert) …
+2026-02-24 16:02:41 | WARNING  | Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2026-02-24 16:04:37 | INFO     | Model loaded on cpu
+2026-02-24 16:04:37 | INFO     | Starting BTC sentiment loop (interval=28800s, thresholds=+0.25/-0.25)
+2026-02-24 16:04:37 | INFO     | === Cycle start: 2026-02-25 00:04:37 UTC ===
+2026-02-24 16:04:37 | WARNING  | TWITTER_BEARER_TOKEN not set — skipping Twitter
+2026-02-24 16:04:38 | WARNING  | Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. Falling back to regular HTTP download. For better performance, install the package with: `pip install huggingface_hub[hf_xet]` or `pip install hf_xet`
+2026-02-24 16:04:39 | INFO     | Fetched 100 Reddit posts
+2026-02-24 16:06:04 | INFO     | Results saved to C:\Users\Xavi\polymarket_project\sentiment\btc_sentiment_history.csv
+2026-02-24 16:06:04 | INFO     | Twitter=0.0000 (0 posts) | Reddit=-0.0300 (100 posts) | Combined=-0.0300 | Signal=HOLD
+2026-02-24 16:06:04 | INFO     | Sleeping 480 minutes until next cycle …
+2026-02-24 16:11:56 | INFO     | Loading FinBERT model (ProsusAI/finbert) …
+2026-02-24 16:11:58 | INFO     | Model loaded on cpu
+2026-02-24 16:11:58 | INFO     | Starting BTC sentiment loop (interval=900s, thresholds=+0.25/-0.25)
+2026-02-24 16:11:58 | INFO     | === Cycle start: 2026-02-25 00:11:58 UTC ===
+2026-02-24 16:12:01 | INFO     | Fetched 100 Reddit posts
+2026-02-24 16:13:22 | INFO     | Results saved to C:\Users\Xavi\polymarket_project\sentiment\btc_sentiment_history.csv
+2026-02-24 16:13:22 | INFO     | Reddit=-0.0300 (100 posts) | Signal=HOLD
+2026-02-24 16:13:22 | INFO     | Sleeping 15 minutes until next cycle …
+2026-02-24 16:15:21 | INFO     | Shutdown requested — exiting cleanly
+2026-02-24 16:15:56 | INFO     | Loading FinBERT model (ProsusAI/finbert) …
+2026-02-24 16:15:59 | INFO     | Model loaded on cpu
+2026-02-24 16:15:59 | INFO     | Starting BTC sentiment loop (aligned to :00/:15/:30/:45, thresholds=+0.25/-0.25)
+2026-02-24 16:15:59 | INFO     | Waiting 841 seconds until next quarter-hour …
