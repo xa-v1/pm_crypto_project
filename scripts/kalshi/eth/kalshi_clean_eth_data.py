@@ -14,6 +14,10 @@ def market_has_complete_outcomes(market_slug):
     market_rows = [row for row in rows if row["Market Ticker"] == market_slug]
     return all(row["Actual Outcome"].strip() for row in market_rows)
 
+def market_has_volume(market_slug):
+    market_rows = [row for row in rows if row["Market Ticker"] == market_slug]
+    return any(int(row["Volume"]) > 0 for row in market_rows)
+
 filtered_rows = [
     row for row in rows
     if slug_counts[row["Market Ticker"]] == 15

@@ -22,3 +22,13 @@
 2026-02-24 16:15:59 | INFO     | Model loaded on cpu
 2026-02-24 16:15:59 | INFO     | Starting BTC sentiment loop (aligned to :00/:15/:30/:45, thresholds=+0.25/-0.25)
 2026-02-24 16:15:59 | INFO     | Waiting 841 seconds until next quarter-hour …
+2026-02-24 16:30:00 | INFO     | === Cycle start: 2026-02-25 00:30:00 UTC ===
+2026-02-24 16:30:02 | INFO     | Fetched 100 Reddit posts
+2026-02-24 16:31:24 | INFO     | Results saved to C:\Users\Xavi\polymarket_project\sentiment\btc_sentiment_history.csv
+2026-02-24 16:31:24 | INFO     | Reddit=-0.0300 (100 posts) | Signal=HOLD
+2026-02-24 16:31:24 | INFO     | Waiting 816 seconds until next quarter-hour …
+2026-02-24 16:45:00 | INFO     | === Cycle start: 2026-02-25 00:45:00 UTC ===
+2026-02-24 16:45:02 | INFO     | Fetched 100 Reddit posts
+2026-02-24 16:46:18 | INFO     | Results saved to C:\Users\Xavi\polymarket_project\sentiment\btc_sentiment_history.csv
+2026-02-24 16:46:18 | INFO     | Reddit=-0.0300 (100 posts) | Signal=HOLD
+2026-02-24 16:46:18 | INFO     | Waiting 821 seconds until next quarter-hour …
