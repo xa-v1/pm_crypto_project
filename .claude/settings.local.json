@@ -1,7 +1,16 @@
 {
   "permissions": {
     "allow": [
-      "WebFetch(domain:trading-api.kalshi.com)"
+      "WebFetch(domain:trading-api.kalshi.com)",
+      "Bash(pip3 list *)",
+      "Bash(/Users/zoetomlinson/PycharmProjects/pm_crypto_project/.venv/bin/python3 --version)",
+      "Bash(/Users/zoetomlinson/PycharmProjects/pm_crypto_project/.venv/bin/pip list *)",
+      "Bash(/Users/zoetomlinson/PycharmProjects/pm_crypto_project/.venv/bin/pip install *)",
+      "Bash(.venv/bin/python *)",
+      "Bash(brew install *)",
+      "Bash(grep -v \"^$\")",
+      "Bash(MPLBACKEND=Agg .venv/bin/python *)",
+      "Bash(.venv/bin/pip install *)"
     ]
   }
 }

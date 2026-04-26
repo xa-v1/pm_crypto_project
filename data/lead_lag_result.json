@@ -1,0 +1,8 @@
+{
+  "peak_lag": 0,
+  "peak_corr": 0.781686684999577,
+  "p_value": 0.0,
+  "significant": false,
+  "direction": "simultaneous",
+  "n_windows": 1920
+}
