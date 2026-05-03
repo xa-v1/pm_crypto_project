@@ -4,6 +4,97 @@ This document covers the modeling pipeline in detail — feature engineering, pr
 
 ---
 
+## Repository Guide
+
+### Run Order
+
+Scripts must be run in dependency order. Each step saves outputs consumed by the next.
+
+```
+models/preprocessing.py       →  data/merged_contracts.csv, figures/eda_*.png
+models/lead_lag.py            →  data/lead_lag_result.json, figures/cross_correlogram.png
+models/logistic_regression.py →  data/lr_baseline_oos.csv, data/lr_extended_oos.csv, figures/lr_*.png, figures/disagreement_signal.png
+models/xgboost_model.py       →  data/xgb_oos_predictions.csv, figures/xgb_*.png, figures/model_comparison.png
+models/backtest.py            →  figures/backtest_*.png
+```
+
+### Data Files
+
+| File | Description |
+|---|---|
+| `data/btc_contracts.csv` | Raw minute-level Kalshi BTC data (33,951 rows, Feb 16 to Mar 26) |
+| `data/eth_contracts.csv` | Raw minute-level Kalshi ETH data (29,136 rows, same window) |
+| `data/kalshi_btc_prices.csv` | BTC contract price series from Kalshi API |
+| `data/kalshi_eth_prices.csv` | ETH contract price series from Kalshi API |
+| `data/merged_contracts.csv` | Contract-level feature dataset — 1,920 matched BTC/ETH contracts, one row per contract open; primary input for all models |
+| `data/lead_lag_result.json` | Lead-lag output: peak_lag=0, peak_corr=0.782, p=0.0, direction="simultaneous" |
+| `data/lr_baseline_oos.csv` | OOS predicted P(UP) from baseline 3-feature LR across all CV folds (1,595 contracts) |
+| `data/lr_extended_oos.csv` | OOS predicted P(UP) from extended 11-feature LR (1,595 contracts) |
+| `data/xgb_oos_predictions.csv` | OOS predicted P(UP) and binary predictions from XGBoost (1,595 contracts) |
+
+### Figures
+
+**Exploratory data analysis** (`preprocessing.py`)
+
+| Figure | Key takeaway |
+|---|---|
+| `eda_pup_distribution.png` | Distribution of P(UP) at open for BTC and ETH; right-skew confirms most contracts open near 50/50 with occasional high-conviction outliers |
+| `eda_cross_asset.png` | BTC vs ETH opening P(UP) scatter and BTC-ETH divergence distribution; r=0.465 co-movement, divergence roughly symmetric around zero |
+| `eda_signal_evolution.png` | Mean P(UP) trajectory within contract window split by outcome; UP-resolving contracts show monotonic probability increase, DOWN contracts show monotonic decrease |
+| `eda_market_regime.png` | P(UP) over time colored by outcome; highlights the Feb 28 to Mar 10 data gap and any regime shifts in market conviction |
+
+**Lead-lag analysis** (`lead_lag.py`)
+
+| Figure | Key takeaway |
+|---|---|
+| `cross_correlogram.png` | Cross-correlation of BTC and ETH P(UP) at lags -3 to +3 minutes with 95% confidence bands; peak at lag 0 (r=0.782), lags ±1 through ±3 statistically indistinguishable — BTC does not lead ETH |
+
+**Logistic regression** (`logistic_regression.py`)
+
+| Figure | Key takeaway |
+|---|---|
+| `disagreement_signal.png` | Realized accuracy vs conviction spread; monotonic increase from ~52% at low conviction to ~67% at high conviction confirms the market signal is real and directional |
+| `lr_coefficients.png` | Standardized coefficient bar chart for extended LR; BTC 3-min momentum dominates (β=6.34), ETH opening P(UP) is the strongest cross-asset predictor (β=3.55), BTC opening P(UP) is the weakest significant feature (β=1.65) |
+| `lr_roc_pr.png` | ROC and precision-recall curves for baseline and extended LR; baseline AUC=0.703, extended AUC=0.692 |
+| `lr_decision_boundary.png` | 2D classification boundary in P(UP) vs momentum space; illustrates where the model switches from DOWN to UP prediction |
+| `lr_calibration_heatmap.png` | Realized accuracy as a 2D heatmap over opening P(UP) and momentum; shows joint effect of conviction and early drift |
+
+**XGBoost and SHAP** (`xgboost_model.py`)
+
+| Figure | Key takeaway |
+|---|---|
+| `xgb_shap_bar.png` | Mean absolute SHAP value per feature — global importance ranking; ordering consistent with LR coefficients, confirming relationships are approximately linear |
+| `xgb_shap_beeswarm.png` | SHAP beeswarm — each dot is one contract; shows direction and magnitude of each feature's contribution; high BTC momentum strongly pushes toward UP, low momentum toward DOWN |
+| `model_comparison.png` | Accuracy and AUC bar chart across baseline LR, extended LR, and XGBoost; extended LR (65.4%, AUC 0.692) marginally outperforms XGBoost (65.1%, AUC 0.694); difference is not statistically significant (McNemar p=0.866) |
+
+**Backtesting** (`backtest.py`)
+
+| Figure | Key takeaway |
+|---|---|
+| `backtest_timeseries.png` | Cumulative PnL over time for all three models plus SPY and BTC buy-and-hold benchmarks; extended LR (+$468 at threshold 0.55) produces steady positive drift uncorrelated with benchmark direction |
+| `backtest_roc_comparison.png` | ROC curves for all three models on the same axes; curves are close together, consistent with McNemar result |
+| `backtest_model_bars.png` | Accuracy and AUC bar chart for all three models in backtest mode |
+| `backtest_sharpe_grid.png` | Annualized Sharpe and trade count vs threshold (0.50 to 0.70); Sharpe increases monotonically from 26.2 at t=0.50 to 44.1 at t=0.70; trade count falls from 1,595 to 694 |
+| `backtest_tc_sensitivity.png` | Extended LR cumulative PnL at TC=0%, 0.1%, and 0.5%; lines are nearly indistinguishable — the binary ±$1 payoff makes the strategy robust to realistic transaction costs |
+
+### Key Quantitative Results
+
+| Metric | Value |
+|---|---|
+| OOS contracts evaluated | 1,595 |
+| Majority class (UP) base rate | 52.5% |
+| Baseline LR accuracy / AUC | 64.4% / 0.703 |
+| Extended LR accuracy / AUC | 65.4% / 0.692 |
+| XGBoost accuracy / AUC | 65.1% / 0.694 |
+| Extended LR Sharpe at t=0.55 (no TC) | 29.5 |
+| Extended LR Sharpe at t=0.65 (no TC) | 38.6 |
+| Extended LR max drawdown (t=0.55) | -$10.00 |
+| Extended LR PnL at t=0.55, TC=0.5% | +$461 |
+| Lead-lag peak correlation (lag=0) | 0.782 |
+| McNemar p-value (extended LR vs XGBoost) | 0.866 |
+
+---
+
 ## Table of Contents
 
 1. [Preprocessing & Feature Engineering](#1-preprocessing--feature-engineering)
@@ -176,7 +267,7 @@ The harmonic mean of precision and recall, useful when you care about both simul
 
 **What it is:** The area under the Receiver Operating Characteristic curve. The ROC curve plots True Positive Rate (recall) vs. False Positive Rate at every possible classification threshold.
 
-**Interpretation:** AUC is the probability that the model ranks a randomly chosen UP contract higher than a randomly chosen DOWN contract. AUC = 0.5 is random; AUC = 1.0 is perfect. Our extended LR achieves AUC = 0.684, meaning 68.4% of the time it correctly ranks a UP contract above a DOWN contract.
+**Interpretation:** AUC is the probability that the model ranks a randomly chosen UP contract higher than a randomly chosen DOWN contract. AUC = 0.5 is random; AUC = 1.0 is perfect. Our extended LR achieves AUC = 0.692, meaning 69.2% of the time it correctly ranks a UP contract above a DOWN contract.
 
 **Why it matters here:** AUC is threshold-independent — it evaluates the quality of the probability ordering across all possible trading thresholds, not just at 0.5. Since backtesting involves scanning thresholds, AUC is a better summary of model quality than accuracy at a single threshold.
 
@@ -203,7 +294,7 @@ The McNemar test compares two binary classifiers on the **same test set** by foc
 
 **Statistic:** χ² = (|n₁₀ − n₀₁| − 1)² / (n₁₀ + n₀₁), with 1 degree of freedom
 
-**Result:** XGBoost vs Extended LR: χ² = 1.872, p = 0.171 — we fail to reject H₀. The models disagree on ~some contracts, but neither systematically outperforms the other often enough to be confident the difference is real rather than noise. **Conclusion:** XGBoost's 1.2% accuracy advantage over Extended LR is not statistically significant on this dataset.
+**Result:** Extended LR vs XGBoost: b=161, c=157, χ² = 0.028, p = 0.866 — we fail to reject H₀. The models disagree on similar numbers of contracts in each direction, confirming neither systematically outperforms the other. **Conclusion:** Extended LR's 0.3% accuracy advantage over XGBoost is not statistically significant on this dataset.
 
 ### Logistic Regression Coefficient Significance (statsmodels)
 
@@ -291,13 +382,13 @@ Real trading involves three types of cost:
 
 We model transaction costs as a flat percentage of the trade value deducted whether you win or lose. The backtester scans TC rates of 0%, 0.1%, 0.5%, and 1.0% to show breakeven cost levels.
 
-**Result:** Extended LR remains profitable (Sharpe > 0) up to approximately 0.20% per-trade TC. At 0.5% TC, the strategy breaks even. This is tight — Kalshi's spreads may exceed 0.2% on less liquid contracts, which means real performance could be significantly worse than TC=0 results.
+**Result:** The strategy is largely TC-insensitive given the binary ±$1 payoff per trade. At threshold 0.55, Sharpe moves from 29.5 at TC=0% to 29.0 at TC=0.5%, and cumulative PnL falls from $468 to $461 — a reduction of $7 across 1,368 trades. Whether real Kalshi spreads and fees exceed 0.5% per trade depends on contract liquidity, but within the modeled range the signal is robust.
 
 ### Performance Metrics
 
 **Hit Rate** — Fraction of trades (excluding FLAT) that were correct. This is precision averaged over both LONG and SHORT signals. Our extended LR achieves ~62% hit rate at threshold 0.55.
 
-**Total PnL** — Sum of per-trade profits. Extended LR: +$77.25 over 1,596 trades ≈ $0.048 per trade on average.
+**Total PnL** — Sum of per-trade profits. Extended LR at threshold 0.55: +$468 over 1,368 trades ≈ $0.34 per trade on average.
 
 **Sharpe Ratio** — Risk-adjusted return, the standard measure of strategy quality:
 
@@ -311,11 +402,11 @@ For annualization: Kalshi contracts are 15-minute intervals. Assuming 24/7 opera
 periods per year = 24 hours × 4 contracts/hour × 365 days = 35,040
 ```
 
-However, we observe the market is most active during US trading hours. Using 252 trading days × 26 periods/day = 6,552 as a conservative estimate of actively traded periods. Our Extended LR achieves annualized Sharpe ≈ +0.578.
+However, we observe the market is most active during US trading hours. Using 252 trading days × 26 periods/day = 6,552 as a conservative estimate of actively traded periods. Our Extended LR achieves annualized Sharpe ≈ 29.5 at threshold 0.55. Note: this is computed over traded contracts only (flat positions excluded) and annualized by 252 × 26 = 6,552 periods. These values are not directly comparable to conventional equity Sharpe ratios.
 
 **Interpretation of Sharpe:** A Sharpe > 1.0 is generally considered good for a systematic strategy. Our Sharpe of 0.58 is positive and meaningful, but below this bar — consistent with a real but modest edge. For reference, SPY (S&P 500) historically achieves Sharpe ~0.5–0.7, so our model is in that range despite operating on much shorter timescales.
 
-**Maximum Drawdown (Max DD)** — The largest peak-to-trough decline in cumulative portfolio value during the backtest period. Extended LR max DD = −$31.10. This measures the worst losing streak the strategy experienced. A low max DD relative to total PnL (31/77 ≈ 40%) is acceptable for a 2-month backtest.
+**Maximum Drawdown (Max DD)** — The largest peak-to-trough decline in cumulative portfolio value during the backtest period. Extended LR max DD = −$10.00 at threshold 0.55. This measures the worst losing streak the strategy experienced. A max DD of $10 relative to total PnL of $468 (roughly 2%) indicates a smooth cumulative return series with limited drawdown risk over the evaluation window.
 
 **Drawdown formula:**
 ```

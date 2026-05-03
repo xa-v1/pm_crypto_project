@@ -1,5 +1,6 @@
 {
   "permissions": {
+    "defaultMode": "auto",
     "allow": [
       "WebFetch(domain:trading-api.kalshi.com)",
       "Bash(pip3 list *)",
@@ -10,7 +11,10 @@
       "Bash(brew install *)",
       "Bash(grep -v \"^$\")",
       "Bash(MPLBACKEND=Agg .venv/bin/python *)",
-      "Bash(.venv/bin/pip install *)"
+      "Bash(.venv/bin/pip install *)",
+      "Bash(python3 *)",
+      "Bash(pip install *)",
+      "Skill(update-config)"
     ]
   }
 }
