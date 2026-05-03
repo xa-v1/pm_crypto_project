@@ -124,14 +124,6 @@ All models are evaluated out-of-sample on the same 1,596 contracts from the 5-fo
 
 ---
 
-### 6. Sentiment Analysis (Exploratory)
-
-`sentiment/btc_sentiment.py` collects Reddit posts from Bitcoin, CryptoCurrency, CryptoMarkets, and BitcoinMarkets every 15 minutes and scores them with **FinBERT**, a BERT variant fine-tuned on financial text. FinBERT was chosen over general-purpose sentiment models because it handles financial vocabulary (short, bearish, pullback, support level) far better than models trained on product reviews or news articles.
-
-This component runs independently and outputs a timestamped CSV of sentiment scores. It is **not yet integrated** into the modeling pipeline and represents a potential future feature.
-
----
-
 ## Project Structure
 
 ```
@@ -144,8 +136,6 @@ pm_crypto_project/
 │   ├── xgboost_model.py         # XGBoost classifier with SHAP interpretability
 │   └── backtest.py              # Backtesting framework, benchmarks, TC sensitivity
 ├── figures/                     # All generated plots (EDA, model evaluation, backtest)
-├── sentiment/                   # Optional real-time Reddit sentiment pipeline
-│   └── btc_sentiment.py
 ├── scripts/                     # Historical data collection scripts (Kalshi, Polymarket)
 └── docs/                        # Project background document
 ```
@@ -167,13 +157,6 @@ python xgboost_model.py       # generates data/xgb_oos_predictions.csv + SHAP fi
 python backtest.py            # generates all backtest figures; reads all OOS CSVs
 ```
 
-Sentiment collection (optional, runs continuously):
-```bash
-cd sentiment/
-pip install -r requirements.txt
-python btc_sentiment.py
-```
-
 **Dependencies:** `pandas`, `numpy`, `scikit-learn`, `xgboost`, `shap`, `statsmodels`, `matplotlib`, `seaborn`  
 **Python:** 3.9+
 
@@ -184,5 +167,4 @@ python btc_sentiment.py
 - **Short data window:** Two months (Feb–Mar 2026) is a thin training set. Generalization to different market regimes is untested.
 - **Modest effect size:** 62–63% accuracy and Sharpe ~0.6–0.7 represent a real but not large edge. Transaction costs, slippage, and market impact can easily erode it.
 - **No live deployment:** The pipeline is research-grade; it reads historical CSVs, not a live Kalshi API feed.
-- **Sentiment not integrated:** FinBERT sentiment is collected but untested as a model feature.
 - **Static model:** No rolling retraining. If market dynamics shift, model performance may degrade without periodic refitting.
