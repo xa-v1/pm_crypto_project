@@ -22,3 +22,6 @@ env/
 # Office lock files
 ~$*.pptx
 ~$*.docx
+
+# Deliverable docs — kept locally only
+docs/
