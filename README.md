@@ -35,30 +35,19 @@ Kalshi P(UP) is a calibrated, real-money sentiment measurement that runs ≈ 2 m
 ## Quickstart
 
 ```bash
-# 1. Spot data (idempotent)
-python scripts/analysis/eda/pull_coinbase_spot.py
-
-# 2. Contract features (BTC + ETH, plus the merged panel used by the LR)
-python -m scripts.analysis.eda.preprocessing
-
-# 3. Three headline diagnostics
-python -m scripts.analysis.lead_lag                                   # figures/lead_lag.png
-python -m scripts.analysis.variance_ratio                             # data/cleaned/variance_ratio.json
-python -m scripts.analysis.make_figures.make_variance_ratio_panel     # figures/variance_ratio.png
-python -m scripts.analysis.logReg.incremental_information             # figures/logReg/incremental_information.png
-
-# 4. Other deck figures
-python -m scripts.analysis.make_figures.make_data_joint_panel         # slide 6
-python scripts/analysis/calibration/make_hourly_accuracy.py           # slide 8
-python scripts/analysis/calibration/make_accuracy_heatmap.py          # slide 9
-python -m scripts.analysis.make_figures.make_diagrams                 # slide 10 roadmap
-
-# 5. Appendix figures
-python -m scripts.analysis.logReg.make_conviction_spread_accuracy     # slide 20
-python -m scripts.analysis.logReg.make_lr_appendix_figures            # slides 21, 22
+pip install -r requirements.txt
+bash scripts/reproduce.sh                # all stages: data → diagnostics → appendix
+# or pick a stage
+bash scripts/reproduce.sh data
+bash scripts/reproduce.sh diagnostics
+bash scripts/reproduce.sh appendix
 ```
 
-Dependencies: `pandas`, `numpy`, `scikit-learn`, `matplotlib`, `scipy`. Python 3.9+.
+The appendix stage now also produces:
+- `figures/logReg/volatility_forecast.png` — HAR-RV vs GARCH(1,1) vs Kalshi conviction spread for next-15-min realized vol
+- `figures/stress_events_lead_lag.png` — lead-lag correlogram by realized-vol regime (top vs bottom decile)
+
+Python 3.9+.
 
 ---
 
