@@ -1,40 +1,9 @@
-"""
-Intraday seasonality in Kalshi BTC opening accuracy.
-
-Aggregates contracts by UTC hour of open and computes:
-  - implied accuracy = mean opening probability assigned to the favored side
-  - realized accuracy = fraction of those contracts that actually resolved
-    in the favored direction
-Bars highlight hours where realized accuracy falls more than 5 percentage
-points below the implied accuracy (overconfidence gap). This is slide 8 of
-the presentation — Intraday Variability in Realized Accuracy.
-
-Output: figures/eda/hourly_accuracy.png
-"""
-
 import pandas as pd
 import matplotlib.pyplot as plt
-from pathlib import Path
-
-import matplotlib as _mpl
-_mpl.rcParams.update({
-    "font.family":      "Times New Roman",
-    "font.serif":       ["Times New Roman"],
-    "mathtext.fontset": "stix",
-    "font.size":        34,
-    "axes.titlesize":   36,
-    "axes.labelsize":   34,
-    "xtick.labelsize":  32,
-    "ytick.labelsize":  32,
-    "legend.fontsize":  32,
-})
-
-ROOT = Path(__file__).resolve().parents[4]
-
 
 OVERCONFIDENCE_THRESHOLD = 0.05   
 
-df = pd.read_csv(ROOT / "data" / "btc" / "kalshi_btc_prices.csv")
+df = pd.read_csv("kalshi_btc_prices.csv")
 df["Timestamp"]     = pd.to_datetime(df["Timestamp"])
 df["Correct_bin"]   = (df["Correct?"] == "Correct").astype(int)
 df["Minute_offset"] = df.groupby("Market Ticker").cumcount()
@@ -86,7 +55,7 @@ if not flagged.empty:
 else:
     print("\nNo systematically overconfident hours detected.")
 
-fig, ax = plt.subplots(figsize=(28, 14))
+fig, ax = plt.subplots(figsize=(14, 5))
 
 bar_colors = ["#c0392b" if oc else "#2980b9" for oc in is_oc]
 ax.bar(hours, acc, color=bar_colors, width=0.7, edgecolor="white", linewidth=0.6,
@@ -101,7 +70,7 @@ for h, ac, im, oc in zip(hours, acc, implied, is_oc):
             f"−{im - ac:.0%}",
             xy=(h, ac),
             xytext=(h, (ac + im) / 2),
-            ha="center", va="center", fontsize=14, color="#c0392b",
+            ha="center", va="center", fontsize=7, color="#c0392b",
             fontweight="bold",
         )
 
@@ -115,15 +84,10 @@ ax.set_title(
     "Average Initial Prediction Accuracy by Hour  (BTC Kalshi 15-min Contracts)"
 )
 ax.yaxis.set_major_formatter(plt.FuncFormatter(lambda y, _: f"{y:.0%}"))
-ax.legend(fontsize=34, loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0)
+ax.legend(fontsize=9, loc="upper left", bbox_to_anchor=(1.01, 1), borderaxespad=0)
 ax.grid(axis="y", linestyle="--", linewidth=0.4, alpha=0.5, zorder=0)
 ax.set_ylim(bottom=0.25)
 
-fig.text(0.5, -0.02,
-         "Mean opening probability of the favored side (implied) vs realized accuracy by UTC hour.  "
-         "Red labels mark the overconfidence gap on hours where realized < implied by ≥ 5 pp.",
-         ha="center", va="top", fontsize=22, style="italic", color="#444")
-
 plt.tight_layout(rect=[0, 0, 0.85, 1])
-plt.savefig(ROOT / "figures" / "eda" / "hourly_accuracy.png", dpi=150, bbox_inches="tight")
-print("\nSaved: hourly_accuracy.png")
+plt.savefig("btc_hourly_seasonality.png", dpi=150, bbox_inches="tight")
+print("\nSaved: btc_hourly_seasonality.png")

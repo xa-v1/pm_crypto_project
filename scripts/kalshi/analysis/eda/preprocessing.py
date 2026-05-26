@@ -180,7 +180,7 @@ def plot_pup_distribution(btc_c: pd.DataFrame) -> None:
     axes[0].set_xlabel("Opening P(UP)")
     axes[0].set_ylabel("Density")
     axes[0].set_title("Opening P(UP) Distribution by Outcome  (BTC)", fontsize=28)
-    axes[0].legend()
+    axes[0].legend(loc="lower right", fontsize=20, framealpha=0.95)
 
     # Calibration: for each P(UP) bin, what fraction actually ended UP?
     cal_edges = np.linspace(0.30, 0.90, 13)
@@ -203,13 +203,12 @@ def plot_pup_distribution(btc_c: pd.DataFrame) -> None:
     axes[1].set_xlabel("Opening P(UP)")
     axes[1].set_ylabel("Fraction Actually UP")
     axes[1].set_title("Calibration: Opening P(UP) vs Realized Outcome  (BTC)", fontsize=28)
-    axes[1].legend(fontsize=34)
+    axes[1].legend(loc="lower right", fontsize=20, framealpha=0.95)
     axes[1].set_xlim(0.28, 0.92)
     axes[1].set_ylim(0.28, 0.92)
 
-    # Suptitle nudged down a hair (was y=1.02) and panel-titles below
-    # are set at fontsize=28 inside this function so they don't compete with it.
-    plt.suptitle("BTC Kalshi 15-min Contracts:  Opening Signal Analysis", y=0.995)
+    # Suptitle further from the panels so the panel titles read on their own.
+    plt.suptitle("BTC Kalshi 15-min Contracts:  Opening Signal Analysis", y=0.93)
     fig.text(0.5, -0.02,
              "BTC opening P(UP) distribution by outcome (left) and calibration curve (right).",
              ha="center", va="top", fontsize=26, style="italic", color="#444")
