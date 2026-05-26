@@ -1,1 +1,24 @@
-/docs/
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+.venv/
+venv/
+env/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# OS
+.DS_Store
+.Rhistory
+
+# IDE
+.idea/
+.vscode/
+
+# Office lock files
+~$*.pptx
+~$*.docx

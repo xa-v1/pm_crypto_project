@@ -1,170 +1,141 @@
-# Kalshi Crypto Prediction Market Research
+# Kalshi as an Alternative Data Source for BTC
 
-Predicting outcomes of 15-minute BTC and ETH binary contracts on Kalshi using machine learning and cross-asset market signals.
+**OQG Group Research Project — Spring 2026**
+
+This repository characterizes Kalshi 15-minute BTC prediction-market contracts as an alternative data source for sentiment, and tests whether they carry directional information about the underlying BTC spot price beyond what is already reflected in the spot tape.
+
+> **Headline finding:** Across three independent diagnostics, Kalshi P(UP) for BTC is a *calibrated, real-money, minute-frequency sentiment measurement that runs approximately 2 minutes behind the spot tape and exhibits positive serial correlation in its own changes.* It does **not** add incremental directional information above a same-window BTC spot baseline.
+
+The presentation deck (`docs/presentation/`) and speaker notes (`docs/presentation/speaker_notes/`) are the primary deliverable; this README documents the analysis pipeline that produces them.
 
 ---
 
-## Background
+## Research question and motivation
 
-[Kalshi](https://kalshi.com) is a regulated prediction market exchange where participants trade yes/no contracts on real-world events. The contracts analyzed here resolve based on whether BTC or ETH price is **up or down** at the end of a 15-minute window. Each contract is priced as a probability: a contract trading at $0.62 implies the market estimates a 62% chance the outcome is YES (UP).
+Every Kalshi BTC contract resolves on Coinbase spot. For Kalshi P(UP) to be useful as a feature for trading the underlying asset, it must carry information *incremental* to the spot price process. We test this directly against three null hypotheses and report the result.
 
-The central research question is: **can we build a model that extracts a systematic edge over the market's consensus probability?** If the market's opening probability were perfectly calibrated and instantly incorporated all public information, no edge would exist. We hypothesize that early intra-contract momentum and cross-asset signals carry information not yet fully priced in.
+Xavi's section (slides 4–8) characterizes the within-Kalshi signal: calibration, intraday seasonality, accuracy convergence. Zoe's section (slides 9–13) tests Kalshi against the BTC spot benchmark using three diagnostics.
+
+---
+
+## The three diagnostics
+
+| Slide | Diagnostic | Question | Result |
+|---|---|---|---|
+| 10 | **Lead-lag cross-correlogram** | At minute frequency, does P(UP) lead or lag the spot return? | Peak at lag k = −2, r = +0.51. Spot leads Kalshi by ~2 minutes; substantive reaction component bounded at ≥ 1 minute. |
+| 11 | **Variance ratio test** *(Lo & MacKinlay 1988)* | Does P(UP) behave like a random walk on its own? | Spot does not reject the null (H = 0.498). Kalshi P(UP) rejects (H = 0.537; VR(2) = 1.24, VR(10) = 1.41). P(UP) under-reacts to its own information. |
+| 12 | **Incremental information test** *(DeLong et al. 1988)* | Does augmenting a spot-only logistic regression with Kalshi features improve out-of-sample AUC? | Spot-only AUC = 0.796. Kalshi-only AUC = 0.690. Combined AUC = 0.758 — strictly worse than spot-only (DeLong p < 0.001). Kalshi features add no incremental signal. |
+
+The three findings are consistent: Kalshi is downstream of spot and adds noise rather than signal when combined with spot features.
 
 ---
 
 ## Data
 
-**Source:** Kalshi minute-level price feeds for BTC and ETH 15-minute binary contracts  
-**Period:** February 16 – March 26, 2026  
-**Raw volume:** ~34K minute-level BTC rows (2,264 contracts), ~29K ETH rows (1,943 contracts)
-
-Each contract row records the asset, date, contract open time, strike threshold, P(UP), P(DOWN), and volume at that minute. The ticker encodes metadata — for example, `KXBTC15M-26FEB161830-30` means BTC, February 16 2026, opening at 18:30 UTC, $30 threshold.
-
-**Data quality audits before any analysis:**
-- Probability sums: |P(UP) + P(DOWN) − 1| ≤ 0.01 → 100% pass rate for both assets
-- Duplicate (timestamp, ticker) pairs → none found
-- Minimum contract length of 15 rows → one anomalous contract dropped per asset
-- Final usable set: 2,263 BTC contracts (99.96%) and 1,942 ETH contracts (99.95%)
-
-For cross-asset modeling, contracts were matched on `open_key` (timestamp floored to the minute), yielding **1,920 matched pairs** with 1,919 having both outcomes resolved.
-
----
-
-## Analysis Pipeline
-
-### 1. Feature Engineering
-
-Rather than feeding raw minute-level data into models, we aggregate each 15-minute contract into a single row of summary statistics. This is the right choice here because: (a) the outcome is contract-level, not tick-level; (b) it avoids treating time-series within a contract as independent observations; and (c) it produces interpretable features.
-
-**Features constructed per contract:**
-
-| Feature | Description | Rationale |
-|---|---|---|
-| `opening_pup` | P(UP) at minute 0 | Market consensus at open; primary predictor baseline |
-| `momentum_1min` | P(UP)[t=1] − P(UP)[t=0] | Earliest directional drift signal |
-| `momentum_3min` | P(UP)[t=3] − P(UP)[t=0] | Sustained drift over first 3 minutes |
-| `mean_pup_5min` | Mean P(UP) over first 5 minutes | Smoothed early conviction; reduces opening noise |
-| `pup_vol_5min` | Std of P(UP) over first 5 minutes | Market uncertainty / disagreement proxy |
-| `conviction_spread` | \|P(UP) − 0.5\| × 2 | How one-sided the opening probability is (range [0,1]) |
-| `volume_log` | log(1 + opening volume) | Market activity; higher volume may signal stronger conviction |
-| `hour_of_open` | UTC hour of contract open | Tests intraday seasonality in predictability |
-| `prev_open_pup` | Previous contract's opening P(UP) | Tests autocorrelation / market memory |
-| `opening_pup_eth` | ETH contract P(UP) at same time | Cross-asset signal (ETH as BTC predictor) |
-| `momentum_3min_eth` | ETH 3-minute momentum | Cross-asset momentum signal |
-| `btc_eth_divergence` | BTC opening P(UP) − ETH opening P(UP) | Divergence between assets (used in XGBoost only) |
-
-The cross-asset features were motivated by the strong concurrent correlation between BTC and ETH markets (r = 0.78). If the two assets move together, early ETH price action may predict the BTC contract outcome and vice versa.
-
----
-
-### 2. Exploratory Data Analysis
-
-EDA was conducted before any modeling to build intuition and validate assumptions. Key findings:
-
-**P(UP) distribution:** Approximately symmetric around 0.5 for both assets — the market does not systematically favor UP or DOWN, consistent with an efficient prediction market with thin directional biases.
-
-**Market calibration:** The opening P(UP) is well-calibrated. In bins of [0.40–0.50], [0.50–0.60], [0.60–0.70], etc., the realized fraction of UP outcomes closely matches the predicted probability. This confirms the market is doing its job but does not rule out exploitable patterns.
-
-**Signal evolution:** P(UP) drifts monotonically toward outcomes during the 15-minute window. Contracts that end UP show a steady increase from minute 0 to minute 14; contracts that end DOWN show a steady decrease. This confirms that early momentum is genuinely informative — the market is incorporating new information throughout the contract, not just at open.
-
-**Market regime stability:** Rolling 50-contract accuracy hovers between 52–55% throughout the data period with no sharp breakpoints. The dataset is not contaminated by a structural regime shift.
-
-**Disagreement signal:** Contracts where opening P(UP) is far from 0.5 (high conviction spread) are more accurately predicted by a simple threshold model. When the market is confident, it tends to be right. This supports using `conviction_spread` as a feature.
-
----
-
-### 3. Lead-Lag Analysis
-
-Before building cross-asset models, we tested whether BTC or ETH systematically *leads* the other. Using a cross-correlogram of P(UP) series at lags −3 to +3 minutes within matched contract windows:
-
-- **Peak correlation at lag 0:** r = 0.781, p < 0.001
-- **No significant lead-lag relationship** — the assets are driven by the same contemporaneous information rather than one reacting to the other with a delay
-
-**Why this matters for modeling:** Lagged ETH features (e.g., ETH momentum predicting BTC 2 minutes later) would not add value. We therefore include only contemporaneous ETH signals.
-
----
-
-### 4. Model Selection
-
-Three models were evaluated, each building on the previous:
-
-**Baseline Logistic Regression** uses only 3 same-asset BTC features: `opening_pup_btc`, `momentum_3min_btc`, `hour_of_open_btc`. This represents a minimal viable model using only the most direct market signals, and serves as the performance floor.
-
-**Extended Logistic Regression** adds 8 engineered features plus 2 ETH cross-asset features (11 total). Logistic regression was chosen as the primary model because: (a) the dataset is not large enough to reliably support complex nonlinear models without overfitting; (b) coefficients are directly interpretable as log-odds; (c) it is well-understood and auditable for a research context. The `btc_eth_divergence` feature is excluded from LR because it is a linear combination of two included features, causing a singular design matrix.
-
-**XGBoost** includes all 12 features including `btc_eth_divergence`, which gradient-boosted trees can handle without collinearity issues. XGBoost was chosen as the nonlinear benchmark because it handles feature interactions, requires minimal preprocessing, and provides SHAP interpretability. Conservative hyperparameters (shallow trees, low learning rate, subsampling) reduce overfitting on a ~1,600 sample OOS set.
-
-Logistic regression and XGBoost were compared with a McNemar test (not just accuracy) to determine whether the prediction disagreements were statistically significant. They were not (p = 0.171), confirming that the datasets' modest size and feature set — not model complexity — is the binding constraint on performance.
-
----
-
-### 5. Key Results
-
-All models are evaluated out-of-sample on the same 1,596 contracts from the 5-fold time-series cross-validation. The majority-class baseline (always predict UP) achieves 52.5% accuracy.
-
-| Model | Accuracy | AUC-ROC | Sharpe (TC=0) |
+| File | Source | Window | Rows |
 |---|---|---|---|
-| Majority baseline | 52.5% | 0.500 | — |
-| Baseline LR | 58.2% | 0.626 | +0.223 |
-| Extended LR | **62.3%** | 0.684 | +0.578 |
-| XGBoost | **63.5%** | 0.698 | +0.693 |
+| `data/btc/kalshi_btc_prices.csv` | Kalshi public API | 15 Feb – 28 Mar 2026 | 33,951 minute-level rows over 2,264 BTC 15-min contracts |
+| `data/btc/spot_btc_1m.csv` | Coinbase Exchange API | 15 Feb – 28 Mar 2026 | 58,948 BTC 1-min OHLCV bars |
+| `data/btc/btc_contracts.csv` | Derived from raw Kalshi | — | One row per contract, with engineered features |
+| `data/cleaned/merged_contracts.csv` | Kalshi × Coinbase | — | 1,916 matched contracts joined by exact UTC minute |
+| `data/cleaned/*.json` | Diagnostic outputs | — | Result summaries for each test (lead-lag, VR, incremental info) |
 
-**Strongest predictors** (from LR coefficients and SHAP values):
-1. `opening_pup_eth` — strongest single predictor of BTC outcome (β = +3.55, p < 0.001)
-2. `momentum_3min_btc` — very strong same-asset signal (β = +6.34, p < 0.001)
-3. `momentum_3min_eth` — cross-asset momentum (β = +4.69, p < 0.001)
-4. `opening_pup_btc` — market consensus at open (β = +1.65, p = 0.033)
-
-**The cross-asset signals are the main finding.** ETH opening P(UP) is a *stronger* predictor of BTC outcomes than BTC's own opening P(UP). This is consistent with the two assets sharing a common latent factor (crypto sentiment) that is sometimes priced faster or more strongly into ETH than BTC.
-
-**Backtesting results** (threshold = 0.55, no transaction costs, $1 per trade):
-- Extended LR: +$77.25 total PnL, 62.3% hit rate, Sharpe = +0.578
-- Extended LR remains profitable up to ~0.2% per-trade transaction cost
-- Sharpe peaks at thresholds 0.55–0.60; higher thresholds reduce trade count but improve hit rate
+ETH data is retained under `data/eth/` for reproducibility of an earlier cross-asset exploration; it is no longer used in the headline analysis.
 
 ---
 
-## Project Structure
+## Repository layout
 
 ```
 pm_crypto_project/
-├── data/                        # Raw and processed datasets, OOS prediction files
-├── models/                      # Core analysis pipeline (run in order)
-│   ├── preprocessing.py         # Data loading, validation, feature engineering, EDA
-│   ├── lead_lag.py              # Cross-asset lead-lag correlation analysis
-│   ├── logistic_regression.py   # Baseline + Extended LR with 5-fold time-series CV
-│   ├── xgboost_model.py         # XGBoost classifier with SHAP interpretability
-│   └── backtest.py              # Backtesting framework, benchmarks, TC sensitivity
-├── figures/                     # All generated plots (EDA, model evaluation, backtest)
-├── scripts/                     # Historical data collection scripts (Kalshi, Polymarket)
-└── docs/                        # Project background document
+├── README.md                                        # this file
+├── archive/                                         # out-of-scope code kept for reference
+│   ├── README.md
+│   └── polymarket/                                  # earlier Polymarket exploration
+├── data/
+│   ├── btc/                                         # Kalshi BTC, Coinbase BTC spot, contract features
+│   ├── eth/                                         # ETH data (retained, not in headline analysis)
+│   ├── cleaned/                                     # merged + diagnostic outputs (JSON, CSV)
+│   └── README.md
+├── docs/
+│   ├── paper/                                       # whitepaper drafts (Word, PDF, Markdown)
+│   ├── presentation/                                # decks + speaker notes
+│   │   ├── presentation_d5.pptx                     # current version
+│   │   └── speaker_notes/                           # speaker_notes.md is the source of truth
+│   ├── sources/                                     # cited papers (Lo & MacKinlay, Wolfers & Zitzewitz, …)
+│   └── README.md
+├── figures/
+│   ├── eda/                                         # Xavi's calibration, hourly, brier-score figures
+│   ├── lagCorr/                                     # lead-lag cross-correlograms
+│   ├── varRatio/                                    # variance ratio diagnostic
+│   ├── logReg/                                      # incremental information test + appendix LR
+│   └── README.md
+├── scripts/
+│   └── kalshi/
+│       ├── btc/                                     # Kalshi BTC collection + cleaning
+│       ├── eth/                                     # Kalshi ETH collection + cleaning
+│       └── analysis/
+│           ├── eda/                                 # data_exp.ipynb, preprocessing, Coinbase pull
+│           ├── calibration/                         # Xavi's slides 6–8 analyses (accuracy, hourly, brier)
+│           ├── lagCorr/                             # pm_spot_lead_lag.py and friends
+│           ├── varRatio/                            # variance_ratio.py
+│           ├── logReg/                              # incremental_information.py, logistic regression
+│           ├── make_figures/                        # presentation-figure generators
+│           └── README.md
+└── .gitignore
 ```
-
-See [`models/README.md`](models/README.md) for detailed documentation of the modeling pipeline, preprocessing decisions, cross-validation methodology, evaluation statistics, and backtesting framework.
 
 ---
 
-## How to Run
+## How to reproduce the headline diagnostics
 
-Run scripts in this order (each depends on outputs of the previous):
+From the repo root, after `pip install -r requirements.txt` (or your equivalent):
 
 ```bash
-cd models/
-python preprocessing.py       # generates data/btc_contracts.csv, eth_contracts.csv, merged_contracts.csv + EDA figures
-python lead_lag.py            # generates data/lead_lag_result.json + cross_correlogram.png
-python logistic_regression.py # generates data/lr_baseline_oos.csv, lr_extended_oos.csv + LR figures
-python xgboost_model.py       # generates data/xgb_oos_predictions.csv + SHAP figures
-python backtest.py            # generates all backtest figures; reads all OOS CSVs
+# 1. Pull/refresh spot data (idempotent; reads existing CSV if present)
+python scripts/kalshi/analysis/eda/pull_coinbase_spot.py
+
+# 2. Lead-lag cross-correlogram  →  data/cleaned/pm_spot_lead_lag.json, figures/lagCorr/lead_lag.png
+python -m scripts.kalshi.analysis.lagCorr.pm_spot_lead_lag
+
+# 3. Variance ratio test          →  data/cleaned/variance_ratio.json
+python -m scripts.kalshi.analysis.varRatio.variance_ratio
+python -m scripts.kalshi.analysis.make_figures.make_variance_ratio_panel    # figures/varRatio/variance_ratio_panel.png
+
+# 4. Incremental information test →  data/cleaned/incremental_summary.json, figures/logReg/incremental_information.png
+python -m scripts.kalshi.analysis.logReg.incremental_information
 ```
 
-**Dependencies:** `pandas`, `numpy`, `scikit-learn`, `xgboost`, `shap`, `statsmodels`, `matplotlib`, `seaborn`  
-**Python:** 3.9+
+The presentation figures (with Times New Roman fonts sized for a 60-person room) are generated by scripts under `scripts/kalshi/analysis/make_figures/`.
 
 ---
 
-## Limitations
+## Appendix analyses (slides 19–22)
 
-- **Short data window:** Two months (Feb–Mar 2026) is a thin training set. Generalization to different market regimes is untested.
-- **Modest effect size:** 62–63% accuracy and Sharpe ~0.6–0.7 represent a real but not large edge. Transaction costs, slippage, and market impact can easily erode it.
-- **No live deployment:** The pipeline is research-grade; it reads historical CSVs, not a live Kalshi API feed.
-- **Static model:** No rolling retraining. If market dynamics shift, model performance may degrade without periodic refitting.
+- **`scripts/kalshi/analysis/logReg/make_conviction_spread_accuracy.py`** — realized accuracy by Kalshi opening conviction bin (slide 20, Market Disagreement Signal).
+- **`scripts/kalshi/analysis/logReg/make_lr_appendix_figures.py`** — feature-importance + 2-D decision-boundary diagnostics for the incremental-information LR (slides 21–22).
+- **`scripts/kalshi/analysis/calibration/`** — Xavi's slides 8–9 work: hourly accuracy seasonality and (minute × conviction) accuracy heatmap.
+
+---
+
+## Limitations and next steps
+
+See `docs/presentation/speaker_notes/speaker_notes.md` for the full discussion. Briefly:
+
+- **Identification.** The 2-minute lag confounds Coinbase candle aggregation, Kalshi scraper averaging, and substantive reaction at Kalshi. Tick-level spot plus Kalshi order book data would identify each component.
+- **Inference.** Cluster bootstrap by contract preserves within-contract dependence but not across-calendar-time dependence. A calendar-time block bootstrap would be more conservative.
+- **Generalizability.** Six weeks of moderate-volatility data is one regime; replication during stress events (CPI releases, BTC-specific news shocks) is essential before treating the 2-minute lag and the 0.10 AUC gap as structural.
+- **Most promising next step:** does the conviction spread `|P(UP) − 0.5|` forecast realized volatility above HAR-RV and GARCH benchmarks? The directional channel is dead, but the second-moment channel is open.
+
+---
+
+## References
+
+Selected citations (full bibliography in `docs/sources/references.md`):
+
+- Cameron, A. C., Gelbach, J. B., and Miller, D. L. (2008). Bootstrap-based improvements for inference with clustered errors. *Review of Economics and Statistics*, 90(3), 414–427. [DOI: 10.1162/rest.90.3.414](https://doi.org/10.1162/rest.90.3.414)
+- Corsi, F. (2009). A simple approximate long-memory model of realized volatility. *Journal of Financial Econometrics*, 7(2), 174–196.
+- DeLong, E. R., DeLong, D. M., and Clarke-Pearson, D. L. (1988). Comparing the areas under two or more correlated ROC curves. *Biometrics*, 44(3), 837–845. [DOI: 10.2307/2531595](https://doi.org/10.2307/2531595)
+- Fama, E. F. (1970). Efficient capital markets: A review of theory and empirical work. *Journal of Finance*, 25(2), 383–417.
+- Lo, A. W., and MacKinlay, A. C. (1988). Stock market prices do not follow random walks. *Review of Financial Studies*, 1(1), 41–66. [DOI: 10.1093/rfs/1.1.41](https://doi.org/10.1093/rfs/1.1.41)
+- Wolfers, J., and Zitzewitz, E. (2004). Prediction markets. *Journal of Economic Perspectives*, 18(2), 107–126. [DOI: 10.1257/0895330041371321](https://doi.org/10.1257/0895330041371321)
